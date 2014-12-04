@@ -7,10 +7,11 @@
 (use 'clojure.repl)
 
 (defprotocol Complement
-  (complement [s] "Return the complement of s (U \\ s)"))
+  (complement- [s] "Return the complement of s (U \\ s)"))
 
-;; marker protocol.
-(defprotocol Anti "A value defined in terms of what it is not" )
+(defmulti complement #(and (ifn? %) (not (set? %))))
+(defmethod complement true [f] (clojure.core/complement f))
+(defmethod complement false [s] (complement- s))
 
 (deftype AntiSet [^clojure.lang.IPersistentSet non-elems]
   clojure.lang.IPersistentSet
@@ -30,25 +31,11 @@
   (invoke [_ x] (when-not (contains? non-elems x) x))
 
   Complement
-  (complement [_] non-elems)
-
-  Anti)
+  (complement- [_] non-elems))
 
 (extend-protocol Complement
   clojure.lang.IPersistentSet 
-  (complement [s] (AntiSet. s))
-  clojure.lang.Fn ;; wish I could use this on IFn but I can't :-(
-  (complement [f] (clojure.core/complement f)))
-
-(comment
-  "These extend-types are semantically equal to the above extend-protocol."
-  (extend-type clojure.lang.IPersistentSet
-    Complement
-    (complement [s] (AntiSet. s)))
-
-  (extend-type clojure.lang.Fn
-    Complement
-    (complement [f] clojure.core/complement f)))
+  (complement- [s] (AntiSet. s)))
 
 ;; define s-* operators that only work with positive sets and pretend they are
 ;; a part of the clojure.set library (since they should be)
@@ -68,8 +55,8 @@
 ;; Convenience macro for defining the behavior of various combinations
 ;; of positive and negative sets.
 (defmacro case-sets [s1 s2 c1 c2 c3 c4]
-  `(case [(satisfies? Anti ~s1)
-          (satisfies? Anti ~s2)]
+  `(case [(instance? n01se.antiset.AntiSet ~s1)
+          (instance? n01se.antiset.AntiSet ~s2)]
      [false false] ~c1 ;; both sets are normal 
      [false true ] ~c2
      [true  false] ~c3
