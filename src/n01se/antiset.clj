@@ -13,18 +13,18 @@
 (defmethod complement true [f] (clojure.core/complement f))
 (defmethod complement false [s] (complement- s))
 
-(deftype AntiSet [^clojure.lang.IPersistentSet non-elems]
+(deftype Antiset [^clojure.lang.IPersistentSet non-elems]
   clojure.lang.IPersistentSet
   (contains [_ e] (not (contains? non-elems e)))
-  (disjoin [_ e] (AntiSet. (conj non-elems e)))
-  (cons [_ e] (AntiSet. (disj non-elems e)))
+  (disjoin [_ e] (Antiset. (conj non-elems e)))
+  (cons [_ e] (Antiset. (disj non-elems e)))
 
-  (seq [_] (throw "Unable to seq an antiset (infinitely large)"))
-  (count [_] (throw "Unable to count an antiset (infinitely large)"))
+  (seq [_] (throw (Exception. "Unable to seq an antiset (infinitely large)")))
+  (count [_] (throw (Exception. "Unable to count an antiset (infinitely large)")))
   ;; sigh. Count returns an integer so I can't return POSITIVE_INFINITY.
   #_(count [_] Double/POSITIVE_INFINITY)
 
-  (equiv [_ other] (and (instance? AntiSet other)
+  (equiv [_ other] (and (instance? Antiset other)
                         (= non-elems (.non-elems other))))
 
   clojure.lang.IFn
@@ -35,7 +35,7 @@
 
 (extend-protocol Complement
   clojure.lang.IPersistentSet 
-  (complement- [s] (AntiSet. s)))
+  (complement- [s] (Antiset. s)))
 
 ;; define s-* operators that only work with positive sets and pretend they are
 ;; a part of the clojure.set library (since they should be)
@@ -55,8 +55,7 @@
 ;; Convenience macro for defining the behavior of various combinations
 ;; of positive and negative sets.
 (defmacro case-sets [s1 s2 c1 c2 c3 c4]
-  `(case [(instance? n01se.antiset.AntiSet ~s1)
-          (instance? n01se.antiset.AntiSet ~s2)]
+  `(case (map #(instance? n01se.antiset.Antiset %) [~s1 ~s2])
      [false false] ~c1 ;; both sets are normal 
      [false true ] ~c2
      [true  false] ~c3
@@ -153,13 +152,11 @@
 (defn proper-superset? [set1 set2]
   (proper-subset? set2 set1))
 
-;; Define print-method for AntiSet.
+;; Define print-method for Antiset.
 
-(defmethod print-method AntiSet [x w]
+(defmethod print-method Antiset [x w]
   (binding [*out* w]
-    (print (apply str (concat ["#-{"]
-                              (interpose " " (.non-elems x))
-                              ["}"])))))
+    (print (apply str "(n01se.antiset/complement " (pr-str (.non-elems x)) ")"))))
 
 ;; Define set notation. Because Unicode.
 
